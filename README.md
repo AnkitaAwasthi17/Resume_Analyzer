@@ -4,6 +4,6 @@ The requirements for this projects are ollama model, mistral. For installing oll
 https://ollama.com/download/linux
 
 Later just run the command:
-ollama pull mistral 
+" ollama pull mistral "
 
 This will setup the LLM model Mistral locally which can be used for analyzing all the resumes in the "pdfs" folder.
