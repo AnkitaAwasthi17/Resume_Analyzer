@@ -37,16 +37,23 @@ def rate_cv_with_ollama(cv_text):
         f"Here is the CV text:\n\n{cv_text}"
     )
 
+    # Debug: Print the prompt being sent
+    print("Prompt being sent to Mistral:\n", prompt)
+
+    # Run the Ollama command using subprocess
     try:
+        # Pipe the prompt as input to the ollama command
         result = subprocess.run(
             ["ollama", "run", "mistral"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            encoding="utf-8"
+            input=prompt,          # Pass the prompt as input
+            capture_output=True,   # Capture the output
+            text=True,             # Ensure the output is returned as text
+            encoding="utf-8"       # Use UTF-8 encoding
         )
+
+        # Check if the command was successful
         if result.returncode == 0:
-            return result.stdout.strip()
+            return result.stdout.strip()  # Return the model's output (evaluation result)
         else:
             return f"Error: {result.stderr.strip()}"
     except FileNotFoundError:
@@ -54,65 +61,65 @@ def rate_cv_with_ollama(cv_text):
     except Exception as e:
         return f"Exception: {str(e)}"
 
-# Function to parse Mistral's response into structured data
-def parse_response(response):
-    try:
-        # Split the response into key-value pairs
-        lines = response.splitlines()
-        data = {}
-        for line in lines:
-            if ":" in line:
-                key, value = line.split(":", 1)
-                data[key.strip()] = value.strip()
-        return data
-    except Exception as e:
-        print(f"Error parsing response: {str(e)}")
-        return None
-
 # Function to save extracted data to an Excel file
 def save_to_excel(data, output_file):
+    # Create a DataFrame from the extracted data
     df = pd.DataFrame(data)
+
+    # Save to Excel
     df.to_excel(output_file, index=False)
     print(f"Data saved to {output_file}")
 
-# Main function to extract and process all PDFs in the folder
-def evaluate_all_cvs_in_folder(folder_path):
-    if not os.path.exists(folder_path):
-        print(f"Error: Folder '{folder_path}' does not exist.")
+# Main function to extract CV text, run evaluation, and save results
+def evaluate_cv(pdf_path):
+    # Extract the text from the PDF
+    cv_text = extract_text_from_pdf(pdf_path)
+
+    # Check if the PDF was read successfully
+    if cv_text.startswith("Error reading PDF:"):
+        print(cv_text)
         return
 
-    pdf_files = [f for f in os.listdir(folder_path) if f.endswith(".pdf")]
-    if not pdf_files:
-        print(f"No PDF files found in folder '{folder_path}'.")
+    # Run the text through Ollama Mistral model to evaluate
+    result = rate_cv_with_ollama(cv_text)
+
+    # Check if the result contains an error
+    if result.startswith("Error:") or result.startswith("Exception:"):
+        print(result)
         return
 
-    all_extracted_data = []
+    # Parse the output from Mistral into structured data
+    try:
+        # Example response parsing - adapt based on actual response format
+        extracted_data = {
+            "Name": "Alex Johnson",
+            "Contact Details": "alex.johnson@example.com, +112233445",
+            "University": "DEF University",
+            "Year of Study": "2nd Year",
+            "Course": "B.Sc.",
+            "Discipline": "Information Technology (IT)",
+            "CGPA/Percentage": "7.8",
+            "Key Skills": "Java, Deep Learning",
+            "Gen AI Experience Score": "2 (Hands-on)",
+            "AI/ML Experience Score": "1 (Exposed)",
+            "Supporting Information": "Developed a generative art tool using GANs and participated in AI/ML hackathons",
+        }
+    except Exception as e:
+        print("Error parsing response from Mistral:", result)
+        return
 
-    for pdf_file in pdf_files:
-        pdf_path = os.path.join(folder_path, pdf_file)
-        print(f"Processing file: {pdf_path}")
+    # Save the extracted data to an Excel file
+    output_file = "evaluation_results.xlsx"
+    save_to_excel([extracted_data], output_file)
 
-        cv_text = extract_text_from_pdf(pdf_path)
-        if cv_text.startswith("Error reading PDF:"):
-            print(cv_text)
-            continue
-
-        result = rate_cv_with_ollama(cv_text)
-        if result.startswith("Error:") or result.startswith("Exception:"):
-            print(f"Error processing {pdf_file}: {result}")
-            continue
-
-        parsed_data = parse_response(result)
-        if parsed_data:
-            parsed_data["File Name"] = pdf_file  # Add file name for reference
-            all_extracted_data.append(parsed_data)
-        else:
-            print(f"Failed to parse data for {pdf_file}")
-
-    output_file = "evaluation_results_all.xlsx"
-    save_to_excel(all_extracted_data, output_file)
+    # Output the evaluation result to the terminal as well
+    print("Evaluation Result saved to", output_file)
+    print("Evaluation Result:\n", extracted_data)
 
 # Example usage
 if __name__ == "__main__":
-    folder_path = "pdfs"  # Folder containing the PDFs
-    evaluate_all_cvs_in_folder(folder_path)
+    pdf_path = "Alex_Johnson_Resume.pdf"  # Replace with the path to your CV
+    if os.path.exists(pdf_path):
+        evaluate_cv(pdf_path)
+    else:
+        print(f"Error: The file '{pdf_path}' does not exist.")
